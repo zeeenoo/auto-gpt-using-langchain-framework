@@ -21,36 +21,46 @@ title_template = PromptTemplate(
 )
 
 script_template = PromptTemplate(
-    input_variables = ['title'],
-    template= 'write me a youtube video script base on this title :  {title}'
+    input_variables = ['title','wikipedia_research'],
+    template= 'write me a youtube video script base on this title :  {title} by leveraging this wikipedia research : {wikipedia_research}'
 )
 
 # Memory :for storing the history
-memory = ConversationBufferMemory(input_key='topic' , memory_key='chat_history')
+title_memory = ConversationBufferMemory(input_key='topic' , memory_key='chat_history')
+script_memory = ConversationBufferMemory(input_key='title' , memory_key='chat_history')
+
 
 
 
 #LLM 
 llm = OpenAI(temperature=0.9)
-title_chain = LLMChain (llm=llm , prompt=title_template, verbose=True, output_key='title',memory=memory)
-script_chain = LLMChain (llm=llm , prompt=script_template, verbose=True, output_key='script', memory=memory)
+title_chain = LLMChain (llm=llm , prompt=title_template, verbose=True, output_key='title',memory=title_memory)
+script_chain = LLMChain (llm=llm , prompt=script_template, verbose=True, output_key='script', memory=script_memory)
 
 #here we want to concatinate the chains 
-
-sequential_chain = SequentialChain(chains=[title_chain,script_chain], input_variables=['topic'], output_variables=['title','script'], verbose=True)
+wiki = WikipediaAPIWrapper()
+# sequential_chain = SequentialChain(chains=[title_chain,script_chain], input_variables=['topic'], output_variables=['title','script'], verbose=True)
 
 
 #show smth on the screen IF there's a prompt
 
 if prompt : 
     # response = llm(prompt)
-    response = sequential_chain.run( {'topic': prompt} )
-    st.write(response['title'])
-    st.write(response['script'])
+    # response = sequential_chain.run( {'topic': prompt} )
+    title = title_chain.run(prompt)
+    wiki_research = wiki.run(prompt)
+    response = script_chain.run(title=title, wikipedia_research=wiki_research)
 
+    st.write(title)
+    st.write(response)
+
+
+    with st.expander('Title History'):
+        st.info(title_memory.buffer) # like accordion expander
 
     with st.expander('Message History'):
-        st.info(memory.buffer) # like accordion expander
+        st.info(script_memory.buffer)
 
-
+    with st.expander('Wikipedia research'):
+        st.info(wiki_research)
 
